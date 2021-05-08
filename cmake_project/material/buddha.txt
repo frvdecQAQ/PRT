@@ -1,0 +1,21 @@
+0 0 1
+1.3
+PHONG buddha
+const float Kd = 0.12f;
+const float Ks = 5.0f;
+const float s = 0.8f;
+
+-0.041880f, 0.256406f, -0.561102
+0.9
+PHONG teapot
+const float Kd = 0.1f;
+const float Ks = 1.50f;
+const float s = 0.1f;
+
+float camera_dis = 1.9f;
+float fov = 45.0f;
+glm::vec3 camera_pos(0.022439f, 0.198624f, 0.585131f);
+PHONG maxplanck
+const float Kd = 0.1f;
+const float Ks = 1.00f;
+const float s = 0.01f;

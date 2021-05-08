@@ -26,17 +26,21 @@
 #include "generalObject.h"
 #include "resource_manager.h"
 #include "fftprecomputed.hpp"
+#include "shRotateMatrix.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 //#define FULL_SCREEN
 
 // Window size.
 int WIDTH, HEIGHT;
-GLuint width = 1920, height = 1080;
+GLuint width = 1280, height = 768;
 
 // Keyboard.
 bool keys[1024];
 
 // Mouse.
 GLfloat lastX = WIDTH / 2.0f, lastY = HEIGHT / 2.0f;
+GLfloat yaw = -90.f, pitch = 0.0f;
 bool firstMouse = true;
 
 const int LightNumber = 5;
@@ -66,13 +70,15 @@ int shadowSampleNumber = 48 * 48;
 bool drawCubemap = false;
 bool simpleLight = true;
 bool lastSimple = true;
-
+bool renderbar = true;
 // Camera.
-float camera_dis = 1.5f;
+float camera_dis = 1.3f;
+float fov = 45.0f;
 glm::vec3 camera_pos(0.0f, 0.0f, 1.0f);
 glm::vec3 last_camera_pos(0.0f, 0.0f, 1.0f);
 glm::vec3 camera_dir(0.0f, 0.0f, 0.0f);
 glm::vec3 camera_up(0.0f, 1.0f, 0.0f);
+glm::vec3 camera_front(0.0f, 0.0f, -1.0f);
 
 //Simple lighting.
 glm::vec3 light_dir(0.0f, 0.0f, 1.0f);
@@ -111,10 +117,73 @@ void shaderLoading();
 // Miscellaneous.
 void calculateFPS();
 
+void saveImage(char* filepath, GLFWwindow* w) {
+	int width, height;
+	glfwGetFramebufferSize(w, &width, &height);
+	GLsizei nrChannels = 3;
+	GLsizei stride = nrChannels * width;
+	stride += (stride % 4) ? (4 - stride % 4) : 0;
+	GLsizei bufferSize = stride * height;
+	std::vector<char> buffer(bufferSize);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glReadBuffer(GL_FRONT);
+	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+	stbi_flip_vertically_on_write(true);
+	stbi_write_png(filepath, width, height, nrChannels, buffer.data(), stride);
+    FILE* pos_file = fopen("pos.txt", "w");
+    fprintf(pos_file, "%lf %lf %lf\n", camera_pos[0], camera_pos[1], camera_pos[2]);
+    fprintf(pos_file, "%lf\n", camera_dis);
+    fclose(pos_file);
+}
+
 
 int main(int argc, char** argv){
+    /*shRotate sh_rotate(n);
+    float coef[n*n];
+    float coef_out[n*n];
+    for(int i = 0; i < n*n; ++i)coef[i] = 1;
+    glm::mat3 rotateMatrix = glm::mat3(1.0f);
+	rotateMatrix[0][0] = -0.329427;
+    rotateMatrix[0][2] = 0.944181;
+    rotateMatrix[1][0] = -0.109708;
+    rotateMatrix[1][1] = -0.993227;
+    rotateMatrix[1][2] = -0.0382775;
+    rotateMatrix[2][0] = 0.937786;
+    rotateMatrix[2][1] = -0.116194;
+    rotateMatrix[2][2] = 0.327196;
+    
+    Eigen::Matrix3d rotate_Matrix;
+    rotate_Matrix << -0.329427, 0, 0.944181,
+                    -0.109708, -0.993227, -0.0382775,
+                     0.937786, -0.116194, 0.327196;
+    Eigen::Quaterniond r1(rotate_Matrix);
+    std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
+    
+    sh_rotate.rotate(coef, coef_out, rotateMatrix, n);
+
+    std::vector<double> coef_tmp;
+    for(int i = 0; i < n*n; ++i)coef_tmp.push_back(coef[i]);
+
+    std::vector<double> coef_test;
+
+    r1_sh->Apply(coef_tmp, &coef_test);
+
+    for(int i = 0; i < n*n; ++i){
+        std::cout << coef[i] << ' ';
+    }std::cout << std::endl;
+
+    for(int i = 0; i < n*n; ++i){
+        std::cout << coef_out[i] << ' ';
+    }std::cout << std::endl;
+    std::cout << std::endl;
+    for(int i = 0; i < n*n; ++i){
+        std::cout << coef_test[i] << ' ';
+    }std::cout << std::endl;
+
+    return 0;*/
     // ./PRT.exe -s/-l -d/-g [band] [sample number] [sphereNumber] [shadowSampleNumber]
-    renderer.loadTriple(n);
+    //renderer.loadTriple(n);
+    initGamma();
     SphericalH::prepare(n);
     dataProcessing(argc, argv);
 
@@ -216,7 +285,11 @@ int main(int argc, char** argv){
         bool render_again = true;
         renderer.Render(render_again);
 
+        //0.0106241
+        //0.00500424
+
         // Render AntTweakBar UI.
+        if(renderbar)
         TwDraw();
 
         // Swap the screen buffers.
@@ -226,8 +299,36 @@ int main(int argc, char** argv){
         render_cnt++;
         render_time += (end_time-start_time);
         std::cout << "avg = " << render_time/render_cnt << std::endl;
-        //teapot traditional avg = 0.0138298
-        //teapot avg = 0.00900845
+
+
+        /*GLubyte* pPixelData;
+        const int picWidth = 1920;
+        const int picHeight = 1080;
+        pPixelData = (GLubyte*)malloc(picWidth*picHeight*4);
+
+        if(pPixelData == 0)return 0;
+        glReadBuffer(GL_FRONT);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glReadPixels(0, 0, picWidth, picHeight, GL_RGBA, GL_UNSIGNED_BYTE, pPixelData);
+
+        cv::Mat imgPlanes[3];
+        cv::Mat img = cv::M
+
+        for(int i = 0; i < picHeight; ++i){
+            unsigned char* plane0Ptr = imgPlanes[0].ptr<unsigned char>(i);
+            unsigned char* plane1Ptr = imgPlanes[1].ptr<unsigned char>(i);
+            unsigned char* plane2Ptr = imgPlanes[2].ptr<unsigned char>(i);
+            for(int j = 0; j < picWidth; ++j){
+                int k = 4*(i*picWidtj);
+                plane2Ptr[j] = pPixelData[k];
+                plane1Ptr[j] = pPixelData[k+1];
+                plane2Ptr[j] = pPixelData[k+2];
+            }
+        }
+
+        cv::merge(imgPlanes, img);
+        cv::flip(img, img, 0);
+        cv::imwrite("./opengl_result.jpg", img);*/
 
     }
     // Terminate GLFW, clearing any resources allocated by GLFW.
@@ -459,6 +560,20 @@ int key_callback(GLFWwindow* window, int key, int scancode, int action, int mode
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
+    float cameraSpeed = 0.2;
+    if (key == GLFW_KEY_W && action == GLFW_PRESS)
+        camera_pos += cameraSpeed * camera_front;
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+        camera_pos -= cameraSpeed * camera_front;
+    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+        camera_pos -= cameraSpeed * glm::normalize(glm::cross((camera_dir - camera_dis * camera_pos), camera_up));
+    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+        camera_pos += cameraSpeed * glm::normalize(glm::cross((camera_dir - camera_dis * camera_pos), camera_up));
+    if (key == GLFW_KEY_K && action == GLFW_PRESS)
+        saveImage("./result.png", window);
+    if (key == GLFW_KEY_H && action == GLFW_PRESS)
+        renderbar = !renderbar;
+    
     if (key >= 0 && key < 1024)
     {
         if (action == GLFW_PRESS)
@@ -482,6 +597,31 @@ int mouse_callback(GLFWwindow* window, double xpos, double ypos)
     lastX = xpos;
     lastY = ypos;
 
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    lastX = xpos;
+    lastY = ypos;
+
+    float sensitivity = 0.02f; // change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    // make sure that when pitch is out of bounds, screen doesn't get flipped
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    camera_front = glm::normalize(front);
+
+
     return TwMouseMotion((int)xpos, (int)ypos);
 }
 
@@ -494,6 +634,11 @@ int button_calback(GLFWwindow* window, int button, int action, int mods)
 
 int scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
+    //  fov -= (float)yoffset;
+    // if (fov < 1.0f)
+    //     fov = 1.0f;
+    // if (fov > 45.0f)
+    //     fov = 45.0f;
     if (yoffset > 0 && camera_dis >= 1.0f)
     {
         camera_dis -= 0.2f;

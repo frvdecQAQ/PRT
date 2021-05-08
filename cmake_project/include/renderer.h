@@ -22,6 +22,7 @@
 #include "shorder.hpp"
 #include "fftprecomputed.hpp"
 
+#include "shRotateMatrix.h"
 #include "test.h"
 
 // Camera intrinsic parameters definetion.

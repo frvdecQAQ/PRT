@@ -19,6 +19,27 @@ void GeneralObject::write2Diskbin(std::string filename)
         }
     }
 
+    for(int i = 0; i < brdf_sample_num; ++i)
+    {
+        for(int j = 0; j < brdf_sample_num; ++j)
+        {
+            for(int k = 0; k < band2; ++k)out.write((char*)&brdf_lookup_table[i][j][k], sizeof(float));
+        }
+    }
+
+    for(int i = 0; i < brdf_sample_num; ++i)
+    {
+        for(int j = 0; j < brdf_sample_num; ++j)
+        {
+            Sample &tmp = brdf_sampler._samples[i*brdf_sample_num+j];
+            out.write((char*)&tmp._sphericalCoord[0], sizeof(float));
+            out.write((char*)&tmp._sphericalCoord[1], sizeof(float));
+            out.write((char*)&tmp._cartesCoord[0], sizeof(float));
+            out.write((char*)&tmp._cartesCoord[1], sizeof(float));
+            out.write((char*)&tmp._cartesCoord[2], sizeof(float));
+        }
+    }
+
     out.close();
     std::cout << "Glossy object generated." << std::endl;
 }
@@ -47,9 +68,31 @@ void GeneralObject::readFDiskbin(std::string filename)
             in.read((char*)&_TransferFunc[i][k], sizeof(float));
         }
     }
+
+    for(int i = 0; i < brdf_sample_num; ++i)
+    {
+        for(int j = 0; j < brdf_sample_num; ++j)
+        {
+            for(int k = 0; k < band2; ++k)in.read((char*)&brdf_lookup_table[i][j][k], sizeof(float));
+        }
+    }
+
+    for(int i = 0; i < brdf_sample_num; ++i)
+    {
+        for(int j = 0; j < brdf_sample_num; ++j)
+        {
+            glm::vec3 _cartesCoord;
+            glm::vec2 _sphericalCoord;
+            in.read((char*)&_sphericalCoord[0], sizeof(float));
+            in.read((char*)&_sphericalCoord[1], sizeof(float));
+            in.read((char*)&_cartesCoord[0], sizeof(float));
+            in.read((char*)&_cartesCoord[1], sizeof(float));
+            in.read((char*)&_cartesCoord[2], sizeof(float));
+            brdf_sampler._samples[i*brdf_sample_num+j] = Sample(_cartesCoord, _sphericalCoord);
+        }
+    }
     
     in.close();
-
     //computeTBN();
 };
 
@@ -214,83 +257,69 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
             _TransferFunc[i][k] *= weight;
         }
     }
-/*#pragma omp parallel for
-    for (int k = 0; k < size; k++)
+
+    int band = (int)(sqrt(band2));
+    brdf_sampler.computeSH(band);
+    const float brdf_weight = 4.0f*M_PI/(brdf_sample_num*brdf_sample_num);
+
+    glm::vec3 n(0.0f, 1.0f, 0.0f);
+    glm::vec3 v(1.0f, 0.0f, 0.0f);
+    glm::vec3 u(0.0f, 0.0f, 1.0f);
+
+    for(int i = 0; i < brdf_sample_num; ++i)
     {
-        int index = 3 * k;
-        glm::vec3 normal = glm::vec3(_normals[index + 0], _normals[index + 1], _normals[index + 2]);
-
-        for (int j = 0; j < sampleNumber; j++)
+        for(int j = 0; j < brdf_sample_num; ++j)
         {
-            Sample stemp = sampler->_samples[j];
-            float G = std::max(glm::dot(glm::normalize(normal), glm::normalize(stemp._cartesCoord)),
-                               0.0f);
-
-            // Shadow.
-            if (shadow)
+            for(int k = 0; k < band2; ++k)brdf_lookup_table[i][j][k] = 0;
+            Sample &vsp = brdf_sampler._samples[i*brdf_sample_num+j];
+            if(brdf_type == 0)
             {
-                Ray testRay(glm::vec3(_vertices[index + 0], _vertices[index + 1], _vertices[index + 2]),
-                            stemp._cartesCoord);
-                visibility = !bvht.intersect(testRay);
+                for(int k = 0; k < brdf_sample_num*brdf_sample_num; ++k)
+                {
+                    Sample &lsp = brdf_sampler._samples[k];
+                    float brdf;
+                    if(vsp._sphericalCoord[0] >= M_PI/2.0f || lsp._sphericalCoord[0] >= M_PI/2.0f)brdf = 0.0f;
+                    else
+                    {
+                        glm::vec3 reflect = 2*glm::dot(n, lsp._cartesCoord)*n-lsp._cartesCoord;
+                        float specular = std::max(glm::dot(glm::normalize(reflect), glm::normalize(vsp._cartesCoord)),
+                                        0.0f);
+                        brdf = Kd+Ks*powf(specular, s);
+                    }
+                    for(int l = 0; l < band2; ++l)
+                    {
+                        brdf_lookup_table[i][j][l] += lsp._SHvalue[l]*brdf*std::max(0.0f, lsp._cartesCoord.z);
+                    }
+                }
             }
             else
             {
-                visibility = true;
-            }
-
-            if (!visibility)
-            {
-                G = 0.0f;
-            }
-
-            // Projection.
-            for (int li = 0; li < _band; li++)
-            {
-                for (int mi = -li; mi <= li; mi++)
+                for(int k = 0; k < brdf_sample_num*brdf_sample_num; ++k)
                 {
-                    for (int lj = 0; lj < _band; lj++)
-                    {
-                        for (int mj = -lj; mj <= lj; mj++)
-                        {
-                            int iindex = li * (li + 1) + mi;
-                            int jindex = lj * (lj + 1) + mj;
+                    Sample &lsp = brdf_sampler._samples[k];
+                    glm::vec3 h = glm::normalize(vsp._cartesCoord + lsp._cartesCoord);
+                    float delta = acos(glm::dot(h, n));
 
-                            // @NOTE: G term is added because it's the special case. 
-                            _TransferMatrix[0][k](iindex, jindex) += stemp._SHvalue[iindex] * stemp._SHvalue[jindex] *
-                                G;
-                        }
+                    float brdf;
+                    if(vsp._sphericalCoord[0] >= M_PI/2.0f || lsp._sphericalCoord[0] >= M_PI/2.0f)brdf = 0.0f;
+                    else
+                    {
+                        float factor1 = 1.0f/sqrt(cos(lsp._cartesCoord[0])*cos(vsp._cartesCoord[0]));
+                        float factor2 = exp(-pow(tan(delta), 2)/pow(s, 2))/(4.0f*M_PI*pow(s, 2));
+                        brdf = Kd + Ks*factor1*factor2;
+                    }
+                    for(int l = 0; l < band2; ++l)
+                    {
+                        brdf_lookup_table[i][j][l] += lsp._SHvalue[l]*brdf*std::max(0.0f, lsp._cartesCoord.z);
                     }
                 }
             }
-        }
-    }
-    // Normalization.
-    float weight = 4.0f * M_PI / sampleNumber;
-#pragma omp parallel for
-    for (int k = 0; k < size; k++)
-    {
-        for (int li = 0; li < _band; li++)
-        {
-            for (int mi = -li; mi <= li; mi++)
+            for(int k = 0; k < band2; ++k)
             {
-                for (int lj = 0; lj < _band; lj++)
-                {
-                    for (int mj = -lj; mj <= lj; mj++)
-                    {
-                        int iindex = li * (li + 1) + mi;
-                        int jindex = lj * (lj + 1) + mj;
-
-                        _TransferMatrix[0][k](iindex, jindex) *= weight;
-                    }
-                }
+                brdf_lookup_table[i][j][k] = brdf_lookup_table[i][j][k]*brdf_weight;
             }
         }
     }
-
-    if (type == T_UNSHADOW)
-    {
-        std::cout << "Unshadowed transfer matrix generated." << std::endl;
-    }*/
 }
 
 void GeneralObject::glossyShadow(int size, int band2, Sampler* sampler, TransferType type, BVHTree* Inbvht)

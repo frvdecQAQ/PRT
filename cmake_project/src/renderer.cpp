@@ -22,10 +22,12 @@ extern int HEIGHT;
 
 // Camera.
 extern float camera_dis;
+extern float fov;
 extern glm::vec3 camera_pos;
 extern glm::vec3 last_camera_pos;
 extern glm::vec3 camera_dir;
 extern glm::vec3 camera_up;
+extern glm::vec3 camera_front;
 
 // Rotation.
 extern int g_AutoRotate;
@@ -48,7 +50,6 @@ Renderer::~Renderer()
 
 //load sparse_n file(traditional method)
 void Renderer::loadTriple(int _band) {
-    initGamma();
 
     band = _band;
     std::string sparse_file_path = "./processedData/triple/sparse" + std::to_string(band);
@@ -109,7 +110,7 @@ void Renderer::Init(const int lightNumber)
     }
 
     // Initialize projection matrix.
-    projection = glm::perspective(ZOOM, (float)WIDTH / (float)HEIGHT, NEAR_PLANE, FAR_PLANE);
+    projection = glm::perspective(fov, (float)WIDTH / (float)HEIGHT, NEAR_PLANE, FAR_PLANE);
 }
 
 void Renderer::Setup(Scene* scene, Lighting* light)
@@ -161,7 +162,20 @@ void Renderer::Setup(Scene* scene, Lighting* light)
 
             for(int j = 0; j < 3; ++j){
                 for(int k = 0; k < band2; ++k)coef_in[k] = _lighting->_Vcoeffs[j](k);
-                sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
+                //sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
+                std::vector<double>coef_a, coef_b;
+                for(int k = 0; k < band2; ++k)coef_a.push_back(coef_in[k]);
+
+                Eigen::Matrix3d rotate_Matrix;
+                for(int k = 0; k < 3; ++k)for(int t = 0; t < 3; ++t){
+                    rotate_Matrix(k, t) = obj_now->normal_space_rotate_matrix[i][k][t];
+                }
+                Eigen::Quaterniond r1(rotate_Matrix);
+                std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
+                r1_sh->Apply(coef_a, &coef_b);
+
+                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];
+
                 for(int k = 0; k < band2; ++k)in_data_a[in_data_a_index++] = coef_out[k];
             }
 
@@ -280,6 +294,48 @@ void Renderer::testMap(float* coef, const std::string& path) {
     }
     cv::imwrite(path, gray);
 }
+void Renderer::objDraw()
+{
+    glBindVertexArray(_VAO);
+    vertices = _scene->vertice_num;
+    faces = _scene->indices_num;
+    glDrawArrays(GL_TRIANGLES, 0, _meshBuffer.size());
+
+    // Unbind.
+    glBindVertexArray(0);
+}
+
+void Renderer::Render(bool render_again)
+{
+    // Render objects.
+    glm::mat4 view = glm::lookAt(camera_dis * camera_pos, camera_dir, camera_up);
+    //glm::mat4 view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
+    glm::mat4 model = glm::mat4(1.0f);
+    Shader shader = ResourceManager::GetShader("prt");
+    shader.Use();
+    shader.SetMatrix4("model", model);
+    shader.SetMatrix4("view", view);
+    shader.SetMatrix4("projection", projection);
+
+    if (render_again)setupBuffer(0, camera_dis*camera_pos);
+
+    objDraw();
+
+    //std::cout << "Render done" << std::endl;
+
+    if (drawCubemap)
+    {
+        // Render cubemap.
+        shader = ResourceManager::GetShader("cubemap");
+        shader.Use();
+        // Remove translation from the view matrix.
+        view = glm::mat4(glm::mat3(view));
+        shader.SetMatrix4("view", view);
+        shader.SetMatrix4("projection", projection);
+        hdrTextures[lightingIndex].Draw();
+    }
+}
+
 
 void Renderer::setupBuffer(int type, glm::vec3 viewDir)
 {
@@ -287,81 +343,19 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
     int band2 = band * band;
     int sz = (int)_scene->obj_list.size();
     _meshBuffer.clear();
-    //_meshBuffer.resize(_scene->indices_num*3);
+    glm::vec3 cameraPos = viewDir;
     viewDir = glm::normalize(viewDir);
 
-    //shRotate sh_rotate(band);
-    //float *coef_in = new float[band2];
-    //float *coef_out = new float[band2];
-    
-    /*for(int obj_id = 0; obj_id < sz; ++obj_id)
-    {
-        if(_scene->type_list[obj_id] == 0)continue;
-        int vertex_number = _scene->obj_list[obj_id]->_vertices.size() / 3;
-
-        for(int i = 0; i < vertex_number; ++i)
-        {
-            int offset = 3*i;
-            GeneralObject* obj_now = dynamic_cast<GeneralObject*>(_scene->obj_list[obj_id]);
-            glm::vec3 normal(obj_now->_normals[offset], obj_now->_normals[offset + 1],
-                obj_now->_normals[offset + 2]);
-
-            normal = glm::normalize(normal);
-            glm::vec3 u;
-            u = glm::cross(normal, glm::vec3(0.0f, 1.0f, 0.0f));
-            if (glm::dot(u, u) < 1e-3f) {
-                u = glm::cross(normal, glm::vec3(1.0f, 0.0f, 0.0f));
-            }
-            u = glm::normalize(u);
-            glm::vec3 v = glm::cross(normal, u);
-
-            glm::mat4 rotateMatrix;
-            rotateMatrix[3][3] = 1;
-            rotateMatrix[0][0] = u[0];
-            rotateMatrix[0][1] = u[1];
-            rotateMatrix[0][2] = u[2];
-            rotateMatrix[1][0] = v[0];
-            rotateMatrix[1][1] = v[1];
-            rotateMatrix[1][2] = v[2];
-            rotateMatrix[2][0] = normal[0];
-            rotateMatrix[2][1] = normal[1];
-            rotateMatrix[2][2] = normal[2];
-
-            for(int j = 0; j < 3; ++j){
-                for(int k = 0; k < band2; ++k)coef_in[k] = _lighting->_Vcoeffs[j](k);
-                sh_rotate.rotate(coef_in, coef_out, rotateMatrix, band);
-                for(int k = 0; k < band2; ++k)in_data_a[in_data_a_index++] = coef_out[k];
-            }
-
-            for(int j = 0; j < 3; ++j){
-                for(int k = 0; k < band2; ++k)in_data_b[in_data_b_index++] = obj_now->_TransferFunc[i][k];
-            }
-        }
-    }*/
     double start_time = glfwGetTime();
     cudaMemcpy(triple_product_data_a, in_data_a, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(triple_product_data_b, in_data_b, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
-    //traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num);
-    shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num,
-        pool0_gpu, pool1_gpu, pool2_gpu);
+    traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num);
+    //shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num,
+     //   pool0_gpu, pool1_gpu, pool2_gpu);
     cudaMemcpy(out_data_c, triple_product_data_c, triple_product_num*n*n*sizeof(float), cudaMemcpyDeviceToHost);
     double end_time = glfwGetTime();
     std::cout << "triple_product_time = " << end_time-start_time << std::endl;
     start_time = end_time;
-    //check code
-    /*for(int i = 0; i < band2; ++i){
-        coef_in[i] = in_data_a[i];
-        coef_out[i] = in_data_b[i];
-    }
-
-    tripleProduct(coef_out, coef_in, band2);
-    for(int i = 0; i < band2; ++i){
-        std::cout << coef_out[i] << ' ';
-    }std::cout << std::endl;
-    std::cout << "check code" << std::endl;
-    for(int i = 0; i < band2; ++i){
-        std::cout << out_data_c[i] << ' ';
-    }std::cout << std::endl;*/
 
     int base_index_obj = 0;
     //int base_index_face = 0;
@@ -399,66 +393,106 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
         else
         {
             GeneralObject* obj_now = dynamic_cast<GeneralObject*>(_scene->obj_list[obj_id]);
-            float* coef_out = new float[band2];
-//#pragma omp parallel for
-            for(int i = 0; i < vertex_number; ++i){
+            float *coef_out = new float[band2];
+            
+            for(int i = 0; i < vertex_number; ++i)
+            {
                 int offset = 3*i;
-                float cr = 0.0f, cg = 0.0f, cb = 0.0f;
-                
-                int base_index_r = base_index_obj+3*band2*i;
-                int base_index_g = base_index_r+band2;
-                int base_index_b = base_index_g+band2;
-                for (int j = 0; j < band2; ++j) 
-                {
-                    cr += in_data_a[base_index_r+j]*in_data_b[base_index_r+j];
-                    cg += in_data_a[base_index_g+j]*in_data_b[base_index_g+j];
-                    cb += in_data_a[base_index_b+j]*in_data_b[base_index_b+j];
-                }
-
-                cr = std::max(cr, 0.0f);
-                cg = std::max(cg, 0.0f);
-                cb = std::max(cb, 0.0f);
-
-                cr *= obj_now->Kd;
-                cg *= obj_now->Kd;
-                cb *= obj_now->Kd;
-
+                glm::vec3 view_dir_point = viewDir-glm::vec3(obj_now->_vertices[offset],
+                                                            obj_now->_vertices[offset+1],
+                                                            obj_now->_vertices[offset+2]);
                 glm::vec3 view_dir_local;
                 glm::mat4 &rotate_matrix = obj_now->normal_space_rotate_matrix[i];
                 for (int j = 0; j < 3; ++j) 
                 {
                     view_dir_local[j] = 0;
-                    for (int k = 0; k < 3; ++k) view_dir_local[j] += rotate_matrix[j][k] * viewDir[k];
+                    for (int k = 0; k < 3; ++k) view_dir_local[j] += rotate_matrix[j][k] * view_dir_point[k];
                 }
-
                 view_dir_local = glm::normalize(view_dir_local);
-
                 float theta = std::acos(view_dir_local[2]);
                 float phi = std::atan2(view_dir_local[1], view_dir_local[0]);
                 if (phi < 0)phi += 2 * M_PI;
+                float phi_y = (phi/(2*M_PI))*obj_now->brdf_sample_num;
+                float theta_x = ((1-cos(theta))/2.0f)*obj_now->brdf_sample_num;
+                int min_j = (int)(round(theta_x));
+                int min_k = (int)(round(phi_y));
 
-                //int sh_base_index = band2*i;
-                SphericalH::SHvalueALL(band, theta, phi, coef_out);
+                if(min_j < 0)min_j = 0;
+                if(min_k < 0)min_k = 0;
 
-                float tmp_r, tmp_g, tmp_b;
-                tmp_r = tmp_g = tmp_b = 0.0f;
-                for (int l = 0; l < band; ++l) 
+                if(min_j >= obj_now->brdf_sample_num)min_j = obj_now->brdf_sample_num-1;
+                if(min_k >= obj_now->brdf_sample_num)min_k = obj_now->brdf_sample_num-1;
+
+                /*int min_j = -1;
+                int min_k = -1;
+                float max_dis = 1e12;
+                for(int j = 0; j < obj_now->brdf_sample_num; ++j)
                 {
-                    float tmp = l * l;
-                    tmp /= (obj_now->s * 2.0f);
-                    float rho = exp(-tmp);
-                    for (int m = -l; m <= l; ++m) 
+                    for(int k = 0; k < obj_now->brdf_sample_num; ++k)
                     {
-                        int index = l * (l + 1) + m;
-                        float &sh_base = coef_out[index];
-                        tmp_r += rho * out_data_c[base_index_r+index] * sh_base;
-                        tmp_g += rho * out_data_c[base_index_g+index] * sh_base;
-                        tmp_b += rho * out_data_c[base_index_b+index] * sh_base;
+                        glm::vec3 &sample_coord = obj_now->brdf_sampler._samples[j*obj_now->brdf_sample_num+k]._cartesCoord;
+                        glm::vec3 tmp_coord = sample_coord-view_dir_local;
+                        float now_dis = sqrt(tmp_coord[0]*tmp_coord[0]+tmp_coord[1]*tmp_coord[1]+tmp_coord[2]*tmp_coord[2]);
+                        if(now_dis < max_dis){
+                            max_dis = now_dis;
+                            min_j = j;
+                            min_k = k;
+                        }
+                    }
+                } 
+                assert(min_j != -1);
+                assert(min_k != -1);*/
+                float cr, cg, cb;
+                cr = cg = cb = 0.0f;
+                int base_index_r = base_index_obj+i*band2*3;
+                int base_index_g = base_index_r+band2;
+                int base_index_b = base_index_g+band2;
+                for(int k = 0; k < band2; ++k){
+                    cr += out_data_c[base_index_r+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
+                    cg += out_data_c[base_index_g+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
+                    cb += out_data_c[base_index_b+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
+                }
+
+                cr *= _lighting->glossyEffect()[0];
+                cg *= _lighting->glossyEffect()[1];
+                cb *= _lighting->glossyEffect()[2];
+
+                /*for(int l = 0; l < band; ++l)
+                {
+                    float alpha_l_0 = sqrt((4.0f*M_PI)/((l<<1)+1));
+                    int brdf_index = l*(l+1);
+
+                    for(int m = -l; m <= l; ++m)
+                    {
+                        int index = l*(l+1)+m;
+                        out_data_c[base_index_r+index] *= alpha_l_0*obj_now->brdf_lookup_table[min_j][min_k][index];
+                        out_data_c[base_index_g+index] *= alpha_l_0*obj_now->brdf_lookup_table[min_j][min_k][index];
+                        out_data_c[base_index_b+index] *= alpha_l_0*obj_now->brdf_lookup_table[min_j][min_k][index];
                     }
                 }
-                cr += std::max(tmp_r, 0.0f) * obj_now->Ks;
-                cg += std::max(tmp_g, 0.0f) * obj_now->Ks;
-                cb += std::max(tmp_b, 0.0f) * obj_now->Ks;
+                glm::vec3 normal = glm::vec3(obj_now->_normals[offset],
+                                            obj_now->_normals[offset+1],
+                                            obj_now->_normals[offset+2]);
+                glm::vec3 tmp_normal = glm::normalize(normal);    
+                glm::vec3 tmp_view = glm::normalize(viewDir);
+                glm::vec3 tmp_reflect = 2*glm::dot(tmp_normal, tmp_view)*tmp_normal-tmp_view;
+
+                float theta = std::acos(tmp_reflect[2]);
+                float phi = std::atan2(tmp_reflect[1], tmp_reflect[0]);
+                if (phi < 0)phi += 2 * M_PI;
+
+                SphericalH::SHvalueALL(band, theta, phi, coef_out);
+
+                for(int l = 0; l < band; ++l)
+                {
+                    for(int m = -l; m <= l; ++m)
+                    {
+                        int index = l*(l+1)+m;
+                        cr += out_data_c[base_index_r+index]*coef_out[index];
+                        cg += out_data_c[base_index_g+index]*coef_out[index];
+                        cr += out_data_c[base_index_b+index]*coef_out[index];
+                    }
+                }*/
 
                 _colorBuffer[offset] = cr;
                 _colorBuffer[offset + 1] = cg;
@@ -525,44 +559,4 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
 
     // Unbind.
     glBindVertexArray(0);
-}
-void Renderer::objDraw()
-{
-    glBindVertexArray(_VAO);
-    vertices = _scene->vertice_num;
-    faces = _scene->indices_num;
-    glDrawArrays(GL_TRIANGLES, 0, _meshBuffer.size());
-
-    // Unbind.
-    glBindVertexArray(0);
-}
-
-void Renderer::Render(bool render_again)
-{
-    // Render objects.
-    glm::mat4 view = glm::lookAt(camera_dis * camera_pos, camera_dir, camera_up);
-    glm::mat4 model = glm::mat4(1.0f);
-    Shader shader = ResourceManager::GetShader("prt");
-    shader.Use();
-    shader.SetMatrix4("model", model);
-    shader.SetMatrix4("view", view);
-    shader.SetMatrix4("projection", projection);
-
-    if (render_again)setupBuffer(0, camera_dis*camera_pos);
-
-    objDraw();
-
-    //std::cout << "Render done" << std::endl;
-
-    if (drawCubemap)
-    {
-        // Render cubemap.
-        shader = ResourceManager::GetShader("cubemap");
-        shader.Use();
-        // Remove translation from the view matrix.
-        view = glm::mat4(glm::mat3(view));
-        shader.SetMatrix4("view", view);
-        shader.SetMatrix4("projection", projection);
-        hdrTextures[lightingIndex].Draw();
-    }
 }

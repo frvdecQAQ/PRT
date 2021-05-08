@@ -7,25 +7,25 @@
 
 Sampler::Sampler() {}
 
-Sampler::Sampler(unsigned n, bool random_offset)
+Sampler::Sampler(unsigned nn, bool random_offset)
 {
     static std::default_random_engine e;
     static std::uniform_real_distribution<float> u(0, 1);
 
-    for (unsigned i = 0; i < n; i++)
+    for (unsigned i = 0; i < nn; i++)
     {
-        for (unsigned j = 0; j < n; j++)
+        for (unsigned j = 0; j < nn; j++)
         {
             glm::vec2 spherical;
             glm::vec3 cartesian;
             float x, y;
             if (random_offset) {
-                x = (float)(i + u(e)) / float(n);
-                y = (float)(j + u(e)) / float(n);
+                x = (float)(i + u(e)) / float(nn);
+                y = (float)(j + u(e)) / float(nn);
             }
             else {
-                x = float(i) / float(n);
-                y = float(j) / float(n);
+                x = float(i) / float(nn);
+                y = float(j) / float(nn);
             }
 
             // theta

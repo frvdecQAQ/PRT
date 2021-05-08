@@ -609,6 +609,33 @@ src/shRotate.cpp.s:
 	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/shRotate.cpp.s
 .PHONY : src/shRotate.cpp.s
 
+src/shRotateMatrix.o: src/shRotateMatrix.cpp.o
+
+.PHONY : src/shRotateMatrix.o
+
+# target to build an object file
+src/shRotateMatrix.cpp.o:
+	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/shRotateMatrix.cpp.o
+.PHONY : src/shRotateMatrix.cpp.o
+
+src/shRotateMatrix.i: src/shRotateMatrix.cpp.i
+
+.PHONY : src/shRotateMatrix.i
+
+# target to preprocess a source file
+src/shRotateMatrix.cpp.i:
+	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/shRotateMatrix.cpp.i
+.PHONY : src/shRotateMatrix.cpp.i
+
+src/shRotateMatrix.s: src/shRotateMatrix.cpp.s
+
+.PHONY : src/shRotateMatrix.s
+
+# target to generate assembly for a file
+src/shRotateMatrix.cpp.s:
+	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/shRotateMatrix.cpp.s
+.PHONY : src/shRotateMatrix.cpp.s
+
 src/shader.o: src/shader.cpp.o
 
 .PHONY : src/shader.o
@@ -717,6 +744,33 @@ src/stb_image.cpp.s:
 	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/stb_image.cpp.s
 .PHONY : src/stb_image.cpp.s
 
+src/stb_image_write.o: src/stb_image_write.cpp.o
+
+.PHONY : src/stb_image_write.o
+
+# target to build an object file
+src/stb_image_write.cpp.o:
+	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/stb_image_write.cpp.o
+.PHONY : src/stb_image_write.cpp.o
+
+src/stb_image_write.i: src/stb_image_write.cpp.i
+
+.PHONY : src/stb_image_write.i
+
+# target to preprocess a source file
+src/stb_image_write.cpp.i:
+	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/stb_image_write.cpp.i
+.PHONY : src/stb_image_write.cpp.i
+
+src/stb_image_write.s: src/stb_image_write.cpp.s
+
+.PHONY : src/stb_image_write.s
+
+# target to generate assembly for a file
+src/stb_image_write.cpp.s:
+	$(MAKE) -f CMakeFiles/PRT.dir/build.make CMakeFiles/PRT.dir/src/stb_image_write.cpp.s
+.PHONY : src/stb_image_write.cpp.s
+
 src/texture.o: src/texture.cpp.o
 
 .PHONY : src/texture.o
@@ -807,6 +861,9 @@ help:
 	@echo "... src/shRotate.o"
 	@echo "... src/shRotate.i"
 	@echo "... src/shRotate.s"
+	@echo "... src/shRotateMatrix.o"
+	@echo "... src/shRotateMatrix.i"
+	@echo "... src/shRotateMatrix.s"
 	@echo "... src/shader.o"
 	@echo "... src/shader.i"
 	@echo "... src/shader.s"
@@ -819,6 +876,9 @@ help:
 	@echo "... src/stb_image.o"
 	@echo "... src/stb_image.i"
 	@echo "... src/stb_image.s"
+	@echo "... src/stb_image_write.o"
+	@echo "... src/stb_image_write.i"
+	@echo "... src/stb_image_write.s"
 	@echo "... src/texture.o"
 	@echo "... src/texture.i"
 	@echo "... src/texture.s"

@@ -18,13 +18,14 @@ public:
         brdf_sampler = Sampler(brdf_sample_num, false);
     }
 
-    void project2SH(int mode, int band, int sampleNumber, int bounce, std::vector<Object*>obj_list) override;
+    void project2SH(int mode, int band, int sampleNumber, int bounce, 
+        std::vector<Object*>obj_list, int scene_obj_id) override;
     void write2Diskbin(std::string filename) override;
     void readFDiskbin(std::string filename) override;
 
-    const float Kd = 0.12f;
+    const float Kd = 0.5f;
     const float Ks = 5.0f;
-    const float s = 0.8f;
+    const float s = 0.08f;
     const int brdf_type = 0;
     const static int brdf_sample_num = 128;
     Sampler brdf_sampler;
@@ -33,8 +34,10 @@ public:
     float *sh_base = nullptr;
 
 private:
-    void glossyUnshadow(int size, int band2, Sampler* sampler, TransferType type, BVHTree* Inbvht = nullptr);
-    void glossyShadow(int size, int band2, Sampler* sampler, TransferType type, BVHTree* Inbvht = nullptr);
+    void glossyUnshadow(int size, int band2, Sampler* sampler, TransferType type, 
+    std::vector<Object*>obj_list, int scene_obj_id, BVHTree* Inbvht = nullptr);
+    void glossyShadow(int size, int band2, Sampler* sampler, TransferType type, 
+    std::vector<Object*>obj_list, int scene_obj_id, BVHTree* Inbvht = nullptr);
 };
 
 #endif

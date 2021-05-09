@@ -74,9 +74,13 @@ bool lastSimple = true;
 bool renderbar = true;
 // Camera.
 
-float camera_dis = 2.9f;
+/*float camera_dis = 0.9f;
 float fov = 45.0f;
-glm::vec3 camera_pos(-0.326521, 0.319368, -0.889599);
+glm::vec3 camera_pos(-0.326521, 0.319368, -0.889599);*/
+
+float camera_dis = 2.3f;
+float fov = 45.0f;
+glm::vec3 camera_pos(0, 0, 1);
 glm::vec3 last_camera_pos(0.0f, 0.0f, 1.0f);
 glm::vec3 camera_dir(0.0f, 0.0f, 0.0f);
 glm::vec3 camera_up(0.0f, 1.0f, 0.0f);
@@ -516,7 +520,7 @@ void dataProcessing(int argc, char** argv)
         size_t beginIndex = obj_path.rfind('/');
         size_t endIndex = obj_path.rfind('.');
         std::string save_path = path + '/' + obj_path.substr(beginIndex + 1, endIndex - beginIndex - 1) + "U.dat";
-        obj_list[i]->project2SH(transferType, band, sampleNumber, 1, obj_list);
+        obj_list[i]->project2SH(transferType, band, sampleNumber, 1, obj_list, i);
         obj_list[i]->write2Diskbin(save_path);
     }
     //fftprecomputed fs_pre;

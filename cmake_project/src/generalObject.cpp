@@ -40,6 +40,11 @@ void GeneralObject::write2Diskbin(std::string filename)
         }
     }
 
+    for(int i = 0; i < size*3*band2; ++i){
+        out.write((char*)&light_coef[i], sizeof(float));
+    }
+
+
     out.close();
     std::cout << "Glossy object generated." << std::endl;
 }
@@ -90,6 +95,10 @@ void GeneralObject::readFDiskbin(std::string filename)
             in.read((char*)&_cartesCoord[2], sizeof(float));
             brdf_sampler._samples[i*brdf_sample_num+j] = Sample(_cartesCoord, _sphericalCoord);
         }
+    }
+
+    for(int i = 0; i < size*3*band2; ++i){
+        in.read((char*)&light_coef[i], sizeof(float));
     }
     
     in.close();
@@ -187,7 +196,8 @@ void GeneralObject::readFDiskbin(std::string filename)
     }
 }*/
 
-void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, TransferType type, BVHTree* Inbvht)
+void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, TransferType type, 
+std::vector<Object*>obj_list, int scene_obj_id, BVHTree* Inbvht)
 {
     bool shadow = false;
     if (type != T_UNSHADOW)
@@ -204,7 +214,7 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
     _TransferFunc.resize(size, empty);
 
     // Build BVH.
-    BVHTree bvht;
+    /*BVHTree bvht;
     if (shadow)
     {
         if (type == T_SHADOW)
@@ -215,7 +225,11 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
         {
             bvht = *Inbvht;
         }
-    }
+    }*/
+
+    int obj_sz = (int)(obj_list.size());
+    BVHTree bvht[obj_sz];
+    for(int i = 0; i < obj_sz; ++i)bvht[i].build(*obj_list[i]);
 
     // Sample.
     const int sampleNumber = sampler->_samples.size();
@@ -226,6 +240,7 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
         int index = 3 * i;
         glm::vec3 normal = glm::vec3(_normals[index + 0], _normals[index + 1], _normals[index + 2]);
         normal = glm::normalize(normal);
+        //std::cout << normal[0] << ' ' << normal[1] << ' ' << normal[2] << std::endl;
         glm::vec3 u;
         u = glm::cross(normal, glm::vec3(0.0f, 1.0f, 0.0f));
         if (glm::dot(u, u) < 1e-3f) {
@@ -233,17 +248,24 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
         }
         u = glm::normalize(u);
         glm::vec3 v = glm::cross(normal, u);
+        //std::cout << u[0] << ' ' << u[1] << ' ' << u[2] << std::endl;
+        //std::cout << v[0] << ' ' << v[1] << ' ' << v[2] << std::endl;
         for (int j = 0; j < sampleNumber; ++j) {
             Sample& stemp = sampler->_samples[j];
-            glm::vec3 testDir =
+            /*glm::vec3 testDir =
                 stemp._cartesCoord[0] * u +
                 stemp._cartesCoord[1] * v +
-                stemp._cartesCoord[2] * normal;
-            float G = std::max(glm::dot(glm::normalize(normal), glm::normalize(testDir)), 0.0f);
+                stemp._cartesCoord[2] * normal;*/
+            //float G = std::max(glm::dot(glm::normalize(normal), glm::normalize(stemp._cartesCoord)), 0.0f);
+            float G = 1.0f;
             if (shadow) {
                 Ray testRay(glm::vec3(_vertices[index + 0], _vertices[index + 1], _vertices[index + 2]),
-                    testDir);
-                bool visibility = !bvht.intersect(testRay, true);
+                    stemp._cartesCoord);
+                bool visibility = true;
+                for(int k = 0; k < obj_list.size(); ++k){
+                    if(scene_obj_id != k)visibility &= (!bvht[k].intersect(testRay, false));
+                    else visibility &= (!bvht[k].intersect(testRay, true));
+                }
                 if (!visibility) {
                     G = 0.0f;
                 }
@@ -278,8 +300,8 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
                 {
                     Sample &lsp = brdf_sampler._samples[k];
                     float brdf;
-                    if(vsp._sphericalCoord[0] >= M_PI/2.0f || lsp._sphericalCoord[0] >= M_PI/2.0f)brdf = 0.0f;
-                    else
+                    //if(vsp._sphericalCoord[0] >= M_PI/2.0f || lsp._sphericalCoord[0] >= M_PI/2.0f)brdf = 0.0f;
+                    //else
                     {
                         glm::vec3 reflect = 2*glm::dot(n, lsp._cartesCoord)*n-lsp._cartesCoord;
                         float specular = std::max(glm::dot(glm::normalize(reflect), glm::normalize(vsp._cartesCoord)),
@@ -320,11 +342,63 @@ void GeneralObject::glossyUnshadow(int size, int band2, class Sampler* sampler, 
             }
         }
     }
+
+     for(int i = 0; i < size*3*band2; ++i)light_coef[i] = 0;
+
+#pragma omp parallel for
+    for (int i = 0; i < size; i++)
+    {
+        if(i % 1000 == 0)std::cout << i << "/" << size << std::endl;
+        int index = 3 * i;
+        int sample_sz = sampler->_samples.size();
+        glm::vec3 normal = glm::vec3(_normals[index + 0], _normals[index + 1], _normals[index + 2]);
+        normal = glm::normalize(normal);
+        glm::vec3 u;
+        u = glm::cross(normal, glm::vec3(0.0f, 1.0f, 0.0f));
+        if (glm::dot(u, u) < 1e-3f) {
+            u = glm::cross(normal, glm::vec3(1.0f, 0.0f, 0.0f));
+        }
+        u = glm::normalize(u);
+        glm::vec3 v = glm::cross(normal, u);
+        for (int j = 0; j < sample_sz; j++)
+        {
+            Sample stemp = sampler->_samples[j];
+            /*glm::vec3 testDir =
+                stemp._cartesCoord[0] * u +
+                stemp._cartesCoord[1] * v +
+                stemp._cartesCoord[2] * normal;*/
+            float H = 0.0f;
+            Ray testRay(glm::vec3(_vertices[index + 0], _vertices[index + 1], _vertices[index + 2]),
+                            stemp._cartesCoord);
+            bool visibility = false;
+            for(int k = 0; k < 2; ++k){
+                visibility |= rayTriangle(testRay, light_triangle[k], false);
+            }
+            if(visibility)
+            {
+                H = 1.0f;
+            }
+            //Projection.
+            for (int k = 0; k < band2; k++)
+            {
+                float SHvalue = stemp._SHvalue[k];
+
+                light_coef[i*3*band2+k] += SHvalue * H;
+                light_coef[i*3*band2+band2+k] += SHvalue * H;
+                light_coef[i*3*band2+2*band2+k] += SHvalue * H;
+            }
+        }
+    }
+#pragma omp parallel for
+    for(int i = 0; i < size*3*band2; ++i){
+        light_coef[i] *= weight;
+    }
 }
 
-void GeneralObject::glossyShadow(int size, int band2, Sampler* sampler, TransferType type, BVHTree* Inbvht)
+void GeneralObject::glossyShadow(int size, int band2, Sampler* sampler, TransferType type, 
+std::vector<Object*>obj_list, int scene_obj_id, BVHTree* Inbvht)
 {
-    glossyUnshadow(size, band2, sampler, type, Inbvht);
+    glossyUnshadow(size, band2, sampler, type, obj_list, scene_obj_id, Inbvht);
     if (type == T_SHADOW)
     {
         std::cout << "Shadowed transfer matrix generated." << std::endl;
@@ -443,7 +517,7 @@ void GeneralObject::glossyShadow(int size, int band2, Sampler* sampler, Transfer
 }*/
 
 void GeneralObject::project2SH(int mode, int band, int sampleNumber, int bounce,
-    std::vector<Object*>obj_list)
+    std::vector<Object*>obj_list, int scene_obj_id)
 {
     _difforGeneral = true;
     _band = band;
@@ -457,12 +531,12 @@ void GeneralObject::project2SH(int mode, int band, int sampleNumber, int bounce,
     if (mode == 1)
     {
         std::cout << "Transfer Type: unshadowed" << std::endl;
-        glossyUnshadow(size, band2, &stemp, T_UNSHADOW);
+        glossyUnshadow(size, band2, &stemp, T_UNSHADOW, obj_list, scene_obj_id);
     }
     else if (mode == 2)
     {
         std::cout << "Transfer Type: shadowed" << std::endl;
-        glossyShadow(size, band2, &stemp, T_SHADOW);
+        glossyShadow(size, band2, &stemp, T_SHADOW, obj_list, scene_obj_id);
     }
     else if (mode == 3)
     {

@@ -238,7 +238,7 @@ void DiffuseObject::transform(const glm::mat4& m, shRotate& sh_rotate) {
 }
 
 void DiffuseObject::diffuseUnshadow(int size, int band2, Sampler* sampler, TransferType type, 
-    std::vector<Object*>obj_list, BVHTree* Inbvht)
+    std::vector<Object*>obj_list, int scene_obj_id, BVHTree* Inbvht)
 {
     std::cout << "????" << std::endl;
     bool shadow = false;
@@ -340,7 +340,8 @@ void DiffuseObject::diffuseUnshadow(int size, int band2, Sampler* sampler, Trans
                             stemp._cartesCoord);
                 for(int k = 0; k < obj_sz; ++k)
                 {
-                    visibility &= (!bvht[k].intersect(testRay, false));
+                    if(scene_obj_id != k)visibility &= (!bvht[k].intersect(testRay, false));
+                    else visibility &= (!bvht[k].intersect(testRay, true));
                 }
             }
             else
@@ -419,10 +420,10 @@ void DiffuseObject::diffuseUnshadow(int size, int band2, Sampler* sampler, Trans
 }
 
 void DiffuseObject::diffuseShadow(int size, int band2, Sampler* sampler, TransferType type, 
-    std::vector<Object*>obj_list, BVHTree* Inbvht)
+    std::vector<Object*>obj_list, int scene_obj_id, BVHTree* Inbvht)
 {
     std::cout << "shadow" << std::endl;
-    diffuseUnshadow(size, band2, sampler, type, obj_list, Inbvht);
+    diffuseUnshadow(size, band2, sampler, type, obj_list, scene_obj_id, Inbvht);
     if (type == T_SHADOW)
         std::cout << "Shadowed transfer vector generated." << std::endl;
     //system("pause");
@@ -512,7 +513,7 @@ void DiffuseObject::diffuseShadow(int size, int band2, Sampler* sampler, Transfe
 }*/
 
 void DiffuseObject::project2SH(int mode, int band, int sampleNumber, int bounce,
-    std::vector<Object*>obj_list)
+    std::vector<Object*>obj_list, int scene_obj_id)
 {
     _band = band;
 
@@ -526,12 +527,12 @@ void DiffuseObject::project2SH(int mode, int band, int sampleNumber, int bounce,
     if (mode == 1)
     {
         std::cout << "Transfer Type: unshadowed" << std::endl;
-        diffuseUnshadow(size, band2, &stemp, T_UNSHADOW, obj_list);
+        diffuseUnshadow(size, band2, &stemp, T_UNSHADOW, obj_list, scene_obj_id);
     }
     else if (mode == 2)
     {
         std::cout << "Transfer Type: shadowed" << std::endl;
-        diffuseShadow(size, band2, &stemp, T_SHADOW, obj_list);
+        diffuseShadow(size, band2, &stemp, T_SHADOW, obj_list, scene_obj_id);
     }
     /*else if (mode == 3)
     {

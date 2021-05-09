@@ -172,9 +172,12 @@ void Renderer::Setup(Scene* scene, Lighting* light)
             int offset = 3*i;
 
             for(int j = 0; j < 3; ++j){
-                for(int k = 0; k < band2; ++k)coef_in[k] = _lighting->_Vcoeffs[j](k);
-                //sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
-                std::vector<double>coef_a, coef_b;
+                for(int k = 0; k < band2; ++k){
+                    coef_in[k] = _lighting->_Vcoeffs[j](k);
+                    //coef_in[k] = obj_now->light_coef[i*3*band2+j*band2+k];
+                }
+                sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
+                /*std::vector<double>coef_a, coef_b;
                 for(int k = 0; k < band2; ++k)coef_a.push_back(coef_in[k]);
 
                 Eigen::Matrix3d rotate_Matrix;
@@ -185,13 +188,30 @@ void Renderer::Setup(Scene* scene, Lighting* light)
                 std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
                 r1_sh->Apply(coef_a, &coef_b);
 
-                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];
+                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];*/
+
+                //for(int k = 0; k < band2; ++k)coef_out[k] = coef_in[k];
 
                 for(int k = 0; k < band2; ++k)in_data_a[in_data_a_index++] = coef_out[k];
             }
 
             for(int j = 0; j < 3; ++j){
-                for(int k = 0; k < band2; ++k)in_data_b[in_data_b_index++] = obj_now->_TransferFunc[i][k];
+                for(int k = 0; k < band2; ++k){
+                    //in_data_b[in_data_b_index++] = obj_now->_TransferFunc[i][k];
+                    coef_in[k] = obj_now->_TransferFunc[i][k];
+                }
+                sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
+                /*std::vector<double>coef_a, coef_b;
+                for(int k = 0; k < band2; ++k)coef_a.push_back(coef_in[k]);
+                Eigen::Matrix3d rotate_Matrix;
+                for(int k = 0; k < 3; ++k)for(int t = 0; t < 3; ++t){
+                    rotate_Matrix(k, t) = obj_now->normal_space_rotate_matrix[i][k][t];
+                }
+                Eigen::Quaterniond r1(rotate_Matrix);
+                std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
+                r1_sh->Apply(coef_a, &coef_b);
+                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];*/
+                for(int k = 0; k < band2; ++k)in_data_b[in_data_b_index++] = coef_out[k];
             }
         }
     }
@@ -406,10 +426,6 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
                 cg *= _scene->color[obj_id].g;
                 cb *= _scene->color[obj_id].b;
 
-                cr *= 5.0f;
-                cg *= 5.0f;
-                cb *= 5.0f;
-
                 _colorBuffer[offset] = cr;
                 _colorBuffer[offset + 1] = cg;
                 _colorBuffer[offset + 2] = cb;
@@ -476,11 +492,18 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
                     cr += out_data_c[base_index_r+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
                     cg += out_data_c[base_index_g+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
                     cb += out_data_c[base_index_b+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
+                    /*cr += in_data_a[base_index_r+k]*in_data_b[base_index_r+k];
+                    cg += in_data_a[base_index_g+k]*in_data_b[base_index_g+k];
+                    cb += in_data_a[base_index_b+k]*in_data_b[base_index_b+k];*/
                 }
 
-                cr *= _lighting->glossyEffect()[0];
+                /*cr *= _lighting->glossyEffect()[0];
                 cg *= _lighting->glossyEffect()[1];
-                cb *= _lighting->glossyEffect()[2];
+                cb *= _lighting->glossyEffect()[2];*/
+
+                cr *= _scene->color[obj_id].r;
+                cg *= _scene->color[obj_id].g;
+                cb *= _scene->color[obj_id].b;
 
                 /*for(int l = 0; l < band; ++l)
                 {

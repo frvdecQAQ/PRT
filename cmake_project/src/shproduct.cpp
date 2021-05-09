@@ -44,8 +44,12 @@ template<>
 TensorEntry SH<13>::SparseGamma[] = {
 #include "gamma/sparse13"
 };
+template<>
+TensorEntry SH<15>::SparseGamma[] = {
+#include "gamma/sparse15"
+};
 
-template <int n>
+//template <int n>
 matrix<n> operator* (const matrix<n>& a, const matrix<n>& b)
 {
     matrix<n> c;
@@ -57,7 +61,7 @@ matrix<n> operator* (const matrix<n>& a, const matrix<n>& b)
     return c;
 }
 
-template <int n>
+//template <int n>
 SH<n> operator*(const SH<n>& a, const SH<n>& b)
 {
     SH<n> c;
@@ -68,7 +72,7 @@ SH<n> operator*(const SH<n>& a, const SH<n>& b)
 }
 
 
-template <int n>
+//template <int n>
 float dot(const SH<n>& a, const SH<n>& b)
 {
     float t = 0;
@@ -91,7 +95,7 @@ matrix<n*n> SH<n>::prodMatrix() const
 }
 
 
-template <int n>
+//template <int n>
 SH<n> operator*(const matrix<n*n>& a, const SH<n>& b)
 {
     SH<n> c;

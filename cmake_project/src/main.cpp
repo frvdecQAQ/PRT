@@ -61,7 +61,8 @@ Lighting now_light;
 BRDF brdf;
 Renderer renderer;
 
-int sampleNumber = 64 * 64;
+int batchsize = 4096;
+int sampleNumber = 128 * 128;
 int band = 5;
 int sphereNumber = 32;
 int shadowSampleNumber = 48 * 48;
@@ -72,9 +73,10 @@ bool simpleLight = true;
 bool lastSimple = true;
 bool renderbar = true;
 // Camera.
-float camera_dis = 1.3f;
+
+float camera_dis = 1.5f;
 float fov = 45.0f;
-glm::vec3 camera_pos(0.0f, 0.0f, 1.0f);
+glm::vec3 camera_pos(-0.326521f, 0.319368f, -0.889599f);
 glm::vec3 last_camera_pos(0.0f, 0.0f, 1.0f);
 glm::vec3 camera_dir(0.0f, 0.0f, 0.0f);
 glm::vec3 camera_up(0.0f, 1.0f, 0.0f);
@@ -138,51 +140,8 @@ void saveImage(char* filepath, GLFWwindow* w) {
 
 
 int main(int argc, char** argv){
-    /*shRotate sh_rotate(n);
-    float coef[n*n];
-    float coef_out[n*n];
-    for(int i = 0; i < n*n; ++i)coef[i] = 1;
-    glm::mat3 rotateMatrix = glm::mat3(1.0f);
-	rotateMatrix[0][0] = -0.329427;
-    rotateMatrix[0][2] = 0.944181;
-    rotateMatrix[1][0] = -0.109708;
-    rotateMatrix[1][1] = -0.993227;
-    rotateMatrix[1][2] = -0.0382775;
-    rotateMatrix[2][0] = 0.937786;
-    rotateMatrix[2][1] = -0.116194;
-    rotateMatrix[2][2] = 0.327196;
-    
-    Eigen::Matrix3d rotate_Matrix;
-    rotate_Matrix << -0.329427, 0, 0.944181,
-                    -0.109708, -0.993227, -0.0382775,
-                     0.937786, -0.116194, 0.327196;
-    Eigen::Quaterniond r1(rotate_Matrix);
-    std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
-    
-    sh_rotate.rotate(coef, coef_out, rotateMatrix, n);
-
-    std::vector<double> coef_tmp;
-    for(int i = 0; i < n*n; ++i)coef_tmp.push_back(coef[i]);
-
-    std::vector<double> coef_test;
-
-    r1_sh->Apply(coef_tmp, &coef_test);
-
-    for(int i = 0; i < n*n; ++i){
-        std::cout << coef[i] << ' ';
-    }std::cout << std::endl;
-
-    for(int i = 0; i < n*n; ++i){
-        std::cout << coef_out[i] << ' ';
-    }std::cout << std::endl;
-    std::cout << std::endl;
-    for(int i = 0; i < n*n; ++i){
-        std::cout << coef_test[i] << ' ';
-    }std::cout << std::endl;
-
-    return 0;*/
     // ./PRT.exe -s/-l -d/-g [band] [sample number] [sphereNumber] [shadowSampleNumber]
-    //renderer.loadTriple(n);
+    renderer.loadTriple(n);
     initGamma();
     SphericalH::prepare(n);
     dataProcessing(argc, argv);

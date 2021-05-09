@@ -6,7 +6,7 @@
 #include "sphericalHarmonics.h"
 #include "brdf.h"
 
-
+extern int batchsize;
 extern bool drawCubemap;
 extern bool simpleLight;
 
@@ -44,15 +44,13 @@ Renderer::~Renderer()
     if(in_data_a != nullptr)delete[] in_data_a;
     if(in_data_b != nullptr)delete[] in_data_b;
     if(out_data_c != nullptr)delete[] out_data_c;
-    if(sh_base_pool != nullptr)delete[] sh_base_pool;
     delete[]hdrTextures;
 }
 
 //load sparse_n file(traditional method)
 void Renderer::loadTriple(int _band) {
-
     band = _band;
-    std::string sparse_file_path = "./processedData/triple/sparse" + std::to_string(band);
+    std::string sparse_file_path = "./include/gamma/sparse" + std::to_string(band);
     FILE* sparse_file = fopen(sparse_file_path.c_str(), "r");
     std::cout << sparse_file_path << std::endl;
     char ch;
@@ -123,21 +121,34 @@ void Renderer::Setup(Scene* scene, Lighting* light)
         if(scene->type_list[i] == 1)
             triple_product_num += scene->obj_list[i]->_vertices.size();
     }
-    if(triple_product_num%blocksize != 0)
+    if(triple_product_num%batchsize != 0)
     {
-        triple_product_num = (triple_product_num/blocksize+1)*blocksize;
+        triple_product_num = (triple_product_num/batchsize+1)*batchsize;
     }
-    cudaMalloc(&triple_product_data_a, triple_product_num*n*n*sizeof(float));
-    cudaMalloc(&triple_product_data_b, triple_product_num*n*n*sizeof(float));
-    cudaMalloc(&triple_product_data_c, triple_product_num*n*n*sizeof(float));
+
+    //cudaMalloc(&triple_product_data_a, triple_product_num*n*n*sizeof(float));
+    //cudaMalloc(&triple_product_data_b, triple_product_num*n*n*sizeof(float));
+    //cudaMalloc(&triple_product_data_c, triple_product_num*n*n*sizeof(float));
+    cudaMalloc(&triple_product_data_a, batchsize*n*n*sizeof(float));
+    cudaMalloc(&triple_product_data_b, batchsize*n*n*sizeof(float));
+    cudaMalloc(&triple_product_data_c, batchsize*n*n*sizeof(float));
+
     in_data_a = new float[triple_product_num*n*n];
     in_data_b = new float[triple_product_num*n*n];
     out_data_c = new float[triple_product_num*n*n];
     memset(in_data_a, 0, sizeof(in_data_a));
     memset(in_data_b, 0, sizeof(in_data_b));
-    cudaMalloc((void**)&pool0_gpu, sizeof(cufftComplex)*N*N*triple_product_num);
-	cudaMalloc((void**)&pool1_gpu, sizeof(cufftComplex)*N*N*triple_product_num);
-	cudaMalloc((void**)&pool2_gpu, sizeof(cufftComplex)*N*N*triple_product_num);
+
+    //cudaMalloc((void**)&pool0_gpu, sizeof(cufftComplex)*N*N*triple_product_num);
+	//cudaMalloc((void**)&pool1_gpu, sizeof(cufftComplex)*N*N*triple_product_num);
+	//cudaMalloc((void**)&pool2_gpu, sizeof(cufftComplex)*N*N*triple_product_num);
+   
+    cudaMalloc((void**)&pool0_gpu, sizeof(cufftComplex)*N*N*batchsize);
+	cudaMalloc((void**)&pool1_gpu, sizeof(cufftComplex)*N*N*batchsize);
+	cudaMalloc((void**)&pool2_gpu, sizeof(cufftComplex)*N*N*batchsize);
+
+    int sizes[2] = {N,N};
+	cufftPlanMany(&plan, 2, sizes, NULL, 1, N*N, NULL, 1, N*N, CUFFT_C2C, batchsize);
 
     int band = _scene->_band;
     int band2 = band*band;
@@ -195,68 +206,45 @@ void Renderer::SetupColorBuffer(int type, glm::vec3 viewDir, bool diffuse)
     setupBuffer(type, viewDir);
 }
 
-void Renderer::tripleProduct(glm::vec3* result, float* second, int band2) {
-    std::vector<glm::vec3>first;
-    first.clear();
-    for (int i = 0; i < band2; ++i) {
-        first.push_back(result[i]);
-        result[i] = glm::vec3(0, 0, 0);
-    }
-    int sz = dst.size();
-    for (int i = 0; i < sz; ++i) {
-        double tmp = second[src[i].second] * coef[i];
-
-        result[dst[i]].r += first[src[i].first].r * tmp;
-        result[dst[i]].g += first[src[i].first].g * tmp;
-        result[dst[i]].b += first[src[i].first].b * tmp;
-    }
-    /*SH<n> sh1, sh2, sh3, sh4, sh5, sh6, sh7;
-    for (int l = 0; l < band; ++l) {
-        for (int m = -l; m <= l; ++m) {
-            int index = l * (l + 1) + m;
-            sh1.at(l, m) = result[index].r;
-            sh2.at(l, m) = result[index].g;
-            sh3.at(l, m) = result[index].b;
-            sh4.at(l, m) = second[index];
-        }
-    }
-    sh5 = fs2sh(fastmul(sh2fs(sh1), sh2fs(sh4)));
-    sh6 = fs2sh(fastmul(sh2fs(sh2), sh2fs(sh4)));
-    sh7 = fs2sh(fastmul(sh2fs(sh3), sh2fs(sh4)));
+void Renderer::tradional_triple_product(float* A, float* B, float* C, int band2) {
+    SH<n> sh1, sh2, sh3;
     for (int l = 0; l < n; ++l) {
         for (int m = -l; m <= l; ++m) {
             int index = l * (l + 1) + m;
-            result[index] = glm::vec3(sh5.at(l, m), sh6.at(l, m), sh7.at(l, m));
+            sh1.at(l, m) = A[index];
+            sh2.at(l, m) = B[index];
         }
+    }
+    sh3 = sh1*sh2;
+    for (int l = 0; l < n; ++l) {
+        for (int m = -l; m <= l; ++m) {
+            int index = l * (l + 1) + m;
+            C[index] = sh3.at(l, m);
+        }
+    }
+    /*for(int i = 0; i < band2; ++i)C[i] = 0.0f;
+    int sz = dst.size();
+    for (int i = 0; i < sz; ++i){
+        C[dst[i]] += A[src[i].first]*B[src[i].second]*coef[i];
     }*/
 }
 
-void Renderer::tripleProduct(float* result, float* second, int band2) {
-    std::vector<float>first;
-    first.clear();
-    for (int i = 0; i < band2; ++i) {
-        first.push_back(result[i]);
-        result[i] = 0.0f;
-    }
-    int sz = dst.size();
-    for (int i = 0; i < sz; ++i) {
-        result[dst[i]] += first[src[i].first] * second[src[i].second] * coef[i];
-    }
-    /*SH<n> sh1, sh2, sh3;
+void Renderer::ours_triple_product(float* A, float* B, float* C, int band2) {
+    SH<n> sh1, sh2, sh3;
     for (int l = 0; l < n; ++l) {
         for (int m = -l; m <= l; ++m) {
             int index = l * (l + 1) + m;
-            sh1.at(l, m) = result[index];
-            sh2.at(l, m) = second[index];
+            sh1.at(l, m) = A[index];
+            sh2.at(l, m) = B[index];
         }
     }
     sh3 = fs2sh(fastmul(sh2fs(sh1), sh2fs(sh2)));
     for (int l = 0; l < n; ++l) {
         for (int m = -l; m <= l; ++m) {
             int index = l * (l + 1) + m;
-            result[index] = sh3.at(l, m);
+            C[index] = sh3.at(l, m);
         }
-    }*/
+    }
 }
 
 float Renderer::testCoef(float* coef, float theta, float phi) {
@@ -336,6 +324,16 @@ void Renderer::Render(bool render_again)
     }
 }
 
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
+{
+    if (code != cudaSuccess) 
+    {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
 
 void Renderer::setupBuffer(int type, glm::vec3 viewDir)
 {
@@ -347,12 +345,28 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
     viewDir = glm::normalize(viewDir);
 
     double start_time = glfwGetTime();
-    cudaMemcpy(triple_product_data_a, in_data_a, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(triple_product_data_b, in_data_b, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
-    traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num);
+    /*for(int i = 0; i < triple_product_num*band2; i += band2)
+    {
+        tradional_triple_product(in_data_a+i, in_data_b+i, out_data_c+i, band2);
+        //ours_triple_product(in_data_a+i, in_data_b+i, out_data_c+i, band2);
+    }*/
+    //cudaMemcpy(triple_product_data_a, in_data_a, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
+    //cudaMemcpy(triple_product_data_b, in_data_b, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
+    //traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num);
+
     //shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num,
-     //   pool0_gpu, pool1_gpu, pool2_gpu);
-    cudaMemcpy(out_data_c, triple_product_data_c, triple_product_num*n*n*sizeof(float), cudaMemcpyDeviceToHost);
+    //        pool0_gpu, pool1_gpu, pool2_gpu);
+
+    for(int batch = 0; batch < triple_product_num / batchsize; batch++)
+    {
+        cudaMemcpy(triple_product_data_a, in_data_a + batch * batchsize*n*n, batchsize*n*n*sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(triple_product_data_b, in_data_b + batch * batchsize*n*n, batchsize*n*n*sizeof(float), cudaMemcpyHostToDevice);
+        traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, batchsize);
+        //shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, batchsize,
+        //   pool0_gpu, pool1_gpu, pool2_gpu, plan);
+        cudaMemcpy(out_data_c + batch * batchsize*n*n, triple_product_data_c, batchsize*n*n*sizeof(float), cudaMemcpyDeviceToHost);
+    }
+    //cudaMemcpy(out_data_c, triple_product_data_c, triple_product_num*n*n*sizeof(float), cudaMemcpyDeviceToHost);
     double end_time = glfwGetTime();
     std::cout << "triple_product_time = " << end_time-start_time << std::endl;
     start_time = end_time;
@@ -381,9 +395,13 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
                    cb += _lighting->_Vcoeffs[2](j)*obj_now->_DTransferFunc[i][j].b;
                 }
 
-                cr *= _lighting->hdrEffect().r;
+                /*cr *= _lighting->hdrEffect().r;
                 cg *= _lighting->hdrEffect().g;
-                cb *= _lighting->hdrEffect().b;
+                cb *= _lighting->hdrEffect().b;*/
+
+                cr *= 5.0f;
+                cg *= 5.0f;
+                cb *= 5.0f;
 
                 _colorBuffer[offset] = cr;
                 _colorBuffer[offset + 1] = cg;

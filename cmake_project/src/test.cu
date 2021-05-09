@@ -152,36 +152,39 @@ __global__ void multiply(cufftComplex* A, cufftComplex* B)
 // A, B, C are pointers to SH coefficients in device memory
 // layout: SH_0 [ at(0,0), at(1,-1), at(1,0), ... ], SH_1, ...
 void shprod_many(float* A, float* B, float* C, int num,
-    cufftComplex *pool0, cufftComplex *pool1, cufftComplex *pool2)
+    cufftComplex *pool0, cufftComplex *pool1, cufftComplex *pool2, cufftHandle plan)
 {
 	const int blocksize = 32;
 	assert(num%blocksize == 0);
+
 	// mem alloc
 	/*cufftComplex *pool0, *pool1, *pool2;
 	cudaMalloc((void**)&pool0, sizeof(cufftComplex)*N*N*num);
 	cudaMalloc((void**)&pool1, sizeof(cufftComplex)*N*N*num);
 	cudaMalloc((void**)&pool2, sizeof(cufftComplex)*N*N*num);*/
 	// plan DFT
-	cufftHandle plan;
-	int sizes[2] = {N,N};
-	cufftPlanMany(&plan, 2, sizes, NULL, 1, N*N, NULL, 1, N*N, CUFFT_C2C, num);
-    //console.time("exclude_planning " + std::to_string(num));
-	// DFT on A
+
+    cudaMemset(pool0, 0, sizeof(cufftComplex)*N*N*num);
 	cu_sh2fs<<<num/blocksize, blocksize>>>(A, pool0);
-	cudaDeviceSynchronize();
+
     //console.time("fftexec " + std::to_string(num));
 	cufftExecC2C(plan, pool0, pool1, CUFFT_FORWARD);
+
+
 	// DFT on B
 	cu_sh2fs<<<num/blocksize, blocksize>>>(B, pool0);
+	//cudaDeviceSynchronize();
+    
 	cufftExecC2C(plan, pool0, pool2, CUFFT_FORWARD);
 	// element-wise multiply
 	multiply<<<num*N*N/blocksize, blocksize>>>(pool1, pool2);
 	// IDFT & convert backs to SH
 	cufftExecC2C(plan, pool2, pool1, CUFFT_INVERSE);
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
+
     //console.timeEnd("fftexec " + std::to_string(num));
 	cu_fs2sh<<<num/blocksize, blocksize>>>(pool1, C);
 	// synchronize
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
     //console.timeEnd("exclude_planning " + std::to_string(num));
 }

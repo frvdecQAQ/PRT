@@ -1,8 +1,8 @@
 1
 
-teapot.obj
+plants_separated.obj
 
-1
+0
 
 1 1 1
 

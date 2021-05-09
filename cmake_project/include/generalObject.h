@@ -22,9 +22,9 @@ public:
     void write2Diskbin(std::string filename) override;
     void readFDiskbin(std::string filename) override;
 
-    const float Kd = 0.1f;
-    const float Ks = 1.5f;
-    const float s = 0.1f;
+    const float Kd = 0.12f;
+    const float Ks = 5.0f;
+    const float s = 0.8f;
     const int brdf_type = 0;
     const static int brdf_sample_num = 128;
     Sampler brdf_sampler;

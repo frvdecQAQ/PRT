@@ -316,13 +316,13 @@ void DiffuseObject::diffuseUnshadow(int size, int band2, Sampler* sampler, Trans
             {
                 Ray testRay(glm::vec3(_vertices[index + 0], _vertices[index + 1], _vertices[index + 2]),
                             stemp._cartesCoord);
-                visibility = !bvht.intersect(testRay, true);
+                visibility = !bvht.intersect(testRay, false);
             }
             else
             {
                 visibility = true;
             }
-
+            H = 1.0f;
             if (!visibility)
             {
                 H = 0.0f;

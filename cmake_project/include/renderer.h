@@ -99,13 +99,14 @@ private:
     cufftComplex *pool0_gpu = nullptr;
     cufftComplex *pool1_gpu = nullptr;
     cufftComplex *pool2_gpu = nullptr;
-    float *sh_base_pool = nullptr;
+    cufftHandle plan;
+    //float *sh_base_pool = nullptr;
 
     void objDraw();
     //void setupDiffuseBuffer(int type);
     void setupBuffer(int type, glm::vec3 viewDir);
-    void tripleProduct(glm::vec3* result, float* second, int band2);
-    void tripleProduct(float* result, float* second, int band2);
+    void tradional_triple_product(float* A, float* B, float* C, int band2);
+    void ours_triple_product(float* A, float* B, float* C, int band2);
     float testCoef(float* coef, float theta, float phi);
     void testMap(float* coef, const std::string& path);
 };

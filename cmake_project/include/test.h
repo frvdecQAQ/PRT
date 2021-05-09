@@ -22,6 +22,6 @@ void releaseGamma();
 void traditional_method_gpu(float* A, float* B, float* C, int num);
 __global__ void shprod_conventional(float* A, float* B, float* C);
 void shprod_many(float* A, float* B, float* C, int num,
-    cufftComplex *pool0, cufftComplex *pool1, cufftComplex *pool2);
+    cufftComplex *pool0, cufftComplex *pool1, cufftComplex *pool2, cufftHandle plan);
 
 #endif

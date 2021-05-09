@@ -17,10 +17,10 @@ void Object::normVertices(glm::vec3 scale)
     {
         _vertices[i] *= weight;
         // _vertices[i] += trans[i % 3];
-        std::cout << "v = " << _vertices[i] << std::endl;
-        std::cout << "scale = " << scale[i%3] << std::endl;
+        //std::cout << "v = " << _vertices[i] << std::endl;
+        //std::cout << "scale = " << scale[i%3] << std::endl;
         _vertices[i] *= scale[i % 3];
-        std::cout << "v = " << _vertices[i] << std::endl;
+        //std::cout << "v = " << _vertices[i] << std::endl;
     }
 }
 

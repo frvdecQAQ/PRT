@@ -15,7 +15,7 @@ public:
     {
         _difforGeneral = false;
     }
-    void project2SH(int mode, int band, int sampleNumber, int bounce) override;
+    void project2SH(int mode, int band, int sampleNumber, int bounce, std::vector<Object*>obj_list) override;
     void write2Diskbin(std::string filename) override;
     void readFDiskbin(std::string filename) override;
     void transform(const glm::mat4& m, shRotate& sh_rotate);
@@ -24,9 +24,11 @@ public:
     std::vector<std::vector<glm::vec3>> _DTransferFunc;
 
 private:
-    void diffuseUnshadow(int size, int band2, Sampler* sampler, TransferType type, BVHTree* Inbvht = nullptr);
-    void diffuseShadow(int size, int band2, Sampler* sampler, TransferType type, BVHTree* Inbvht = nullptr);
-    void diffuseInterreflect(int size, int band2, Sampler* sampler, TransferType type, int bounce);
+    void diffuseUnshadow(int size, int band2, Sampler* sampler, TransferType type, 
+        std::vector<Object*>obj_list, BVHTree* Inbvht = nullptr);
+    void diffuseShadow(int size, int band2, Sampler* sampler, TransferType type, 
+        std::vector<Object*>obj_list, BVHTree* Inbvht = nullptr);
+    //void diffuseInterreflect(int size, int band2, Sampler* sampler, TransferType type, int bounce);
     float testCoef(float* coef, float theta, float phi);
     void testMap(float* coef, const std::string& path);
     // For write.

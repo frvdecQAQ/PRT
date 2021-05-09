@@ -442,7 +442,8 @@ void GeneralObject::glossyShadow(int size, int band2, Sampler* sampler, Transfer
     std::cout << "Interreflected transfer matrix generated." << std::endl;
 }*/
 
-void GeneralObject::project2SH(int mode, int band, int sampleNumber, int bounce)
+void GeneralObject::project2SH(int mode, int band, int sampleNumber, int bounce,
+    std::vector<Object*>obj_list)
 {
     _difforGeneral = true;
     _band = band;

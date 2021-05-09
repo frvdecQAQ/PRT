@@ -18,7 +18,7 @@ public:
         brdf_sampler = Sampler(brdf_sample_num, false);
     }
 
-    void project2SH(int mode, int band, int sampleNumber, int bounce) override;
+    void project2SH(int mode, int band, int sampleNumber, int bounce, std::vector<Object*>obj_list) override;
     void write2Diskbin(std::string filename) override;
     void readFDiskbin(std::string filename) override;
 

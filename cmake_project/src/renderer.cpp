@@ -390,14 +390,21 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
 
                 for (int j = 0; j < band2; j++)
                 {
-                   cr += _lighting->_Vcoeffs[0](j)*obj_now->_DTransferFunc[i][j].r;
+                   /*cr += _lighting->_Vcoeffs[0](j)*obj_now->_DTransferFunc[i][j].r;
                    cg += _lighting->_Vcoeffs[1](j)*obj_now->_DTransferFunc[i][j].g;
-                   cb += _lighting->_Vcoeffs[2](j)*obj_now->_DTransferFunc[i][j].b;
+                   cb += _lighting->_Vcoeffs[2](j)*obj_now->_DTransferFunc[i][j].b;*/
+                   cr += obj_now->light_coef[i*band2*3+j]*obj_now->_DTransferFunc[i][j].r;
+                   cg += obj_now->light_coef[i*band2*3+band2+j]*obj_now->_DTransferFunc[i][j].g;
+                   cb += obj_now->light_coef[i*band2*3+band2+band2+j]*obj_now->_DTransferFunc[i][j].b;
                 }
 
                 /*cr *= _lighting->hdrEffect().r;
                 cg *= _lighting->hdrEffect().g;
                 cb *= _lighting->hdrEffect().b;*/
+
+                cr *= _scene->color[obj_id].r;
+                cg *= _scene->color[obj_id].g;
+                cb *= _scene->color[obj_id].b;
 
                 cr *= 5.0f;
                 cg *= 5.0f;
@@ -550,6 +557,41 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
         }
         //base_index_face += (facenumber*3);
     }
+
+    for(int i = 0; i < 2; ++i){
+        MeshVertex light_vertex = {
+            _scene->obj_list[0]->light_triangle[i]._v0[0],
+            _scene->obj_list[0]->light_triangle[i]._v0[1],
+            _scene->obj_list[0]->light_triangle[i]._v0[2],
+            1,
+            1,
+            1
+        };
+
+        _meshBuffer.push_back(light_vertex);
+
+        light_vertex = {
+            _scene->obj_list[0]->light_triangle[i]._v1[0],
+            _scene->obj_list[0]->light_triangle[i]._v1[1],
+            _scene->obj_list[0]->light_triangle[i]._v1[2],
+            1,
+            1,
+            1
+        };
+
+        _meshBuffer.push_back(light_vertex);
+
+         light_vertex = {
+            _scene->obj_list[0]->light_triangle[i]._v2[0],
+            _scene->obj_list[0]->light_triangle[i]._v2[1],
+            _scene->obj_list[0]->light_triangle[i]._v2[2],
+            1,
+            1,
+            1
+        };
+        _meshBuffer.push_back(light_vertex);
+    }
+
 
     end_time = glfwGetTime();
     std::cout << "shading_time = " << end_time-start_time << std::endl;

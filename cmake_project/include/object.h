@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include "utils.h"
 #include "sampler.h"
+#include "shorder.hpp"
 
 enum TransferType
 {
@@ -33,6 +34,7 @@ struct Intersection
 
 class Object
 {
+
 public:
     Object():
         _theta(0.0f),
@@ -41,13 +43,23 @@ public:
         _rz(1.0f),
         _difforGeneral(false)
     {
+        light_triangle[0]._v0 = glm::vec3(1, 1.5, 0);
+        light_triangle[0]._v1 = glm::vec3(-1, 1.5, 0);
+        light_triangle[0]._v2 = glm::vec3(0, 1.5, 1);
+
+        light_triangle[1]._v0 = glm::vec3(1, 1.5, 0);
+        light_triangle[1]._v1 = glm::vec3(-1, 1.5, 0);
+        light_triangle[1]._v2 = glm::vec3(0, 1.5, -1);
     }
+
+    ~Object();
 
     void init(std::string path, glm::vec3 albedo, glm::vec3 scale, bool texture = true);
     void queryOOF(glm::vec3 p, float* coef, bool debug = false);
 
     // Project to SH function.
-    virtual void project2SH(int mode, int band, int sampleNumber, int bounce){}
+    virtual void project2SH(int mode, int band, int sampleNumber, int bounce, 
+        std::vector<Object*>obj_list){}
     // IO functions.
     virtual void write2Diskbin(std::string filename){}
     virtual void readFDiskbin(std::string filename){}
@@ -102,6 +114,9 @@ public:
 
     std::vector<std::vector<float>> _ShadowField;
     Sampler point_sample;
+
+    float* light_coef = nullptr;
+    Triangle light_triangle[2];
     
 };
 

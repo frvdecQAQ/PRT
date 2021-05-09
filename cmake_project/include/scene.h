@@ -9,6 +9,7 @@ public:
 	std::vector<Object*>obj_list;
 	std::vector<glm::vec3>center;
 	std::vector<glm::vec3>scale;
+	std::vector<glm::vec3>color;
 	int change_cnt;
 	int _band;
 	int vertice_num;

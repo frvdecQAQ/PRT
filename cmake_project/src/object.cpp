@@ -4,6 +4,11 @@
 #include <iostream>
 #include <cmath>
 
+Object::~Object()
+{
+    if(light_coef != nullptr)delete[] light_coef;
+}
+
 void Object::normVertices(glm::vec3 scale)
 {
     int size = _vertices.size();
@@ -117,7 +122,7 @@ void Object::init(std::string path, glm::vec3 albedo, glm::vec3 scale, bool text
         }
     }
     in.close();
-    normVertices(scale);
+    //normVertices(scale);
 
     //calculate center
     _cx = _cy = _cz = 0.0f;
@@ -181,6 +186,8 @@ void Object::init(std::string path, glm::vec3 albedo, glm::vec3 scale, bool text
 
         normal_space_rotate_matrix.push_back(tmp_matrix);
     }
+
+    light_coef = new float[vertex_size*n*n];
 }
 
 void Object::queryOOF(glm::vec3 p, float* coef, bool debug) {

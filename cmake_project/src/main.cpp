@@ -74,9 +74,9 @@ bool lastSimple = true;
 bool renderbar = true;
 // Camera.
 
-float camera_dis = 1.5f;
+float camera_dis = 2.9f;
 float fov = 45.0f;
-glm::vec3 camera_pos(-0.326521f, 0.319368f, -0.889599f);
+glm::vec3 camera_pos(-0.326521, 0.319368, -0.889599);
 glm::vec3 last_camera_pos(0.0f, 0.0f, 1.0f);
 glm::vec3 camera_dir(0.0f, 0.0f, 0.0f);
 glm::vec3 camera_up(0.0f, 1.0f, 0.0f);
@@ -491,6 +491,7 @@ void dataProcessing(int argc, char** argv)
  
     int transferType = 2;
     int tmp_cnt = 0;
+    std::vector<Object*>obj_list;
     for (auto obj_path : file_name) {
         std::cout << obj_path << std::endl;
         size_t beginIndex = obj_path.rfind('/');
@@ -504,10 +505,19 @@ void dataProcessing(int argc, char** argv)
             if (scene.type_list[tmp_cnt] == 1)tmp = new GeneralObject();
             else tmp = new DiffuseObject();
             tmp->init(obj_path.c_str(), albedo, scene.scale[tmp_cnt]);
-            tmp->project2SH(transferType, band, sampleNumber, 1);
-            tmp->write2Diskbin(save_path);
+            //tmp->project2SH(transferType, band, sampleNumber, 1);
+            //tmp->write2Diskbin(save_path);
+            obj_list.push_back(tmp);
         }
         tmp_cnt++;
+    }
+    for(int i = 0; i < obj_list.size(); ++i){
+        std::string obj_path = file_name[i];
+        size_t beginIndex = obj_path.rfind('/');
+        size_t endIndex = obj_path.rfind('.');
+        std::string save_path = path + '/' + obj_path.substr(beginIndex + 1, endIndex - beginIndex - 1) + "U.dat";
+        obj_list[i]->project2SH(transferType, band, sampleNumber, 1, obj_list);
+        obj_list[i]->write2Diskbin(save_path);
     }
     //fftprecomputed fs_pre;
     //fs_pre.init();

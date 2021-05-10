@@ -61,7 +61,7 @@ Lighting now_light;
 BRDF brdf;
 Renderer renderer;
 
-int batchsize = 4096;
+int batchsize = 2048;
 int sampleNumber = 128 * 128;
 int band = 5;
 int sphereNumber = 32;
@@ -78,9 +78,9 @@ bool renderbar = true;
 float fov = 45.0f;
 glm::vec3 camera_pos(-0.326521, 0.319368, -0.889599);*/
 
-float camera_dis = 2.3f;
+float camera_dis = 11.899993;
 float fov = 45.0f;
-glm::vec3 camera_pos(0, 0, 1);
+glm::vec3 camera_pos(0.000464, 0.187389, -0.210166);
 glm::vec3 last_camera_pos(0.0f, 0.0f, 1.0f);
 glm::vec3 camera_dir(0.0f, 0.0f, 0.0f);
 glm::vec3 camera_up(0.0f, 1.0f, 0.0f);

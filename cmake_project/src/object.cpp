@@ -122,7 +122,7 @@ void Object::init(std::string path, glm::vec3 albedo, glm::vec3 scale, bool text
         }
     }
     in.close();
-    normVertices(scale);
+    //normVertices(scale);
 
     //calculate center
     _cx = _cy = _cz = 0.0f;

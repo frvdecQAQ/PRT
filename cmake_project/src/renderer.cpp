@@ -120,6 +120,10 @@ void Renderer::Setup(Scene* scene, Lighting* light)
     {
         if(scene->type_list[i] == 1)
             triple_product_num += scene->obj_list[i]->_vertices.size();
+
+        //std::cout<<scene->obj_list[i]->_vertices.size()<<" " << scene->type_list[i] <<std::endl;
+        //int s ;
+        //scanf("%d", &s);
     }
     if(triple_product_num%batchsize != 0)
     {
@@ -173,11 +177,11 @@ void Renderer::Setup(Scene* scene, Lighting* light)
 
             for(int j = 0; j < 3; ++j){
                 for(int k = 0; k < band2; ++k){
-                    coef_in[k] = _lighting->_Vcoeffs[j](k);
-                    //coef_in[k] = obj_now->light_coef[i*3*band2+j*band2+k];
+                    //coef_in[k] = _lighting->_Vcoeffs[j](k);
+                    coef_in[k] = obj_now->light_coef[i*3*band2+j*band2+k];
                 }
-                sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
-                /*std::vector<double>coef_a, coef_b;
+                //sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
+                std::vector<double>coef_a, coef_b;
                 for(int k = 0; k < band2; ++k)coef_a.push_back(coef_in[k]);
 
                 Eigen::Matrix3d rotate_Matrix;
@@ -188,7 +192,7 @@ void Renderer::Setup(Scene* scene, Lighting* light)
                 std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
                 r1_sh->Apply(coef_a, &coef_b);
 
-                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];*/
+                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];
 
                 //for(int k = 0; k < band2; ++k)coef_out[k] = coef_in[k];
 
@@ -200,8 +204,8 @@ void Renderer::Setup(Scene* scene, Lighting* light)
                     //in_data_b[in_data_b_index++] = obj_now->_TransferFunc[i][k];
                     coef_in[k] = obj_now->_TransferFunc[i][k];
                 }
-                sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
-                /*std::vector<double>coef_a, coef_b;
+                //sh_rotate.rotate(coef_in, coef_out, obj_now->normal_space_rotate_matrix[i], band);
+                std::vector<double>coef_a, coef_b;
                 for(int k = 0; k < band2; ++k)coef_a.push_back(coef_in[k]);
                 Eigen::Matrix3d rotate_Matrix;
                 for(int k = 0; k < 3; ++k)for(int t = 0; t < 3; ++t){
@@ -210,7 +214,7 @@ void Renderer::Setup(Scene* scene, Lighting* light)
                 Eigen::Quaterniond r1(rotate_Matrix);
                 std::unique_ptr<sh::Rotation> r1_sh(sh::Rotation::Create(n-1, r1));
                 r1_sh->Apply(coef_a, &coef_b);
-                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];*/
+                for(int k = 0; k < band2; ++k)coef_out[k] = coef_b[k];
                 for(int k = 0; k < band2; ++k)in_data_b[in_data_b_index++] = coef_out[k];
             }
         }
@@ -365,11 +369,17 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
     viewDir = glm::normalize(viewDir);
 
     double start_time = glfwGetTime();
-    /*for(int i = 0; i < triple_product_num*band2; i += band2)
+    
+    /*
+    for(int i = 0; i < triple_product_num*band2; i += band2)
     {
-        tradional_triple_product(in_data_a+i, in_data_b+i, out_data_c+i, band2);
-        //ours_triple_product(in_data_a+i, in_data_b+i, out_data_c+i, band2);
-    }*/
+        //tradional_triple_product(in_data_a+i, in_data_b+i, out_data_c+i, band2);
+        ours_triple_product(in_data_a+i, in_data_b+i, out_data_c+i, band2);
+    }
+    */
+    
+
+    //std::cout<<in_data_a[0]<<" "<<in_data_b[0]<<" "<<out_data_c[0]<<std::endl;
     //cudaMemcpy(triple_product_data_a, in_data_a, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
     //cudaMemcpy(triple_product_data_b, in_data_b, triple_product_num*n*n*sizeof(float), cudaMemcpyHostToDevice);
     //traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num);
@@ -377,15 +387,19 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
     //shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, triple_product_num,
     //        pool0_gpu, pool1_gpu, pool2_gpu);
 
+    //std::cout<<"triple num "<<triple_product_num<<std::endl;
+   
+    
     for(int batch = 0; batch < triple_product_num / batchsize; batch++)
     {
         cudaMemcpy(triple_product_data_a, in_data_a + batch * batchsize*n*n, batchsize*n*n*sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy(triple_product_data_b, in_data_b + batch * batchsize*n*n, batchsize*n*n*sizeof(float), cudaMemcpyHostToDevice);
-        traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, batchsize);
-        //shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, batchsize,
-        //   pool0_gpu, pool1_gpu, pool2_gpu, plan);
+        //traditional_method_gpu(triple_product_data_a, triple_product_data_b, triple_product_data_c, batchsize);
+        shprod_many(triple_product_data_a, triple_product_data_b, triple_product_data_c, batchsize,
+           pool0_gpu, pool1_gpu, pool2_gpu, plan);
         cudaMemcpy(out_data_c + batch * batchsize*n*n, triple_product_data_c, batchsize*n*n*sizeof(float), cudaMemcpyDeviceToHost);
     }
+    
     //cudaMemcpy(out_data_c, triple_product_data_c, triple_product_num*n*n*sizeof(float), cudaMemcpyDeviceToHost);
     double end_time = glfwGetTime();
     std::cout << "triple_product_time = " << end_time-start_time << std::endl;
@@ -492,9 +506,9 @@ void Renderer::setupBuffer(int type, glm::vec3 viewDir)
                     cr += out_data_c[base_index_r+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
                     cg += out_data_c[base_index_g+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
                     cb += out_data_c[base_index_b+k]*obj_now->brdf_lookup_table[min_j][min_k][k];
-                    /*cr += in_data_a[base_index_r+k]*in_data_b[base_index_r+k];
-                    cg += in_data_a[base_index_g+k]*in_data_b[base_index_g+k];
-                    cb += in_data_a[base_index_b+k]*in_data_b[base_index_b+k];*/
+                    //cr += obj_now->brdf_lookup_table[min_j][min_k][k];
+                    //cg += obj_now->brdf_lookup_table[min_j][min_k][k];
+                    //cb += obj_now->brdf_lookup_table[min_j][min_k][k];
                 }
 
                 /*cr *= _lighting->glossyEffect()[0];

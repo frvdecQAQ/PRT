@@ -1,3 +1,3 @@
 #pragma once
 
-const int n = 10;
+const int n = 15;
